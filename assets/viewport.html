@@ -1,0 +1,21 @@
+<script>
+(() => {
+  // O teclado pode reduzir apenas o visualViewport, sem mudar 100dvh.
+  // A instalação é única; reruns só atualizam as medidas, sem duplicar listeners.
+  if (window.bobSpaceAtualizarViewport) {
+    window.bobSpaceAtualizarViewport();
+    return;
+  }
+  const atualizar = () => {
+    const viewport = window.visualViewport;
+    const root = document.documentElement.style;
+    root.setProperty("--bob-viewport-height", `${viewport?.height ?? window.innerHeight}px`);
+    root.setProperty("--bob-viewport-top", `${viewport?.offsetTop ?? 0}px`);
+  };
+  window.bobSpaceAtualizarViewport = atualizar;
+  window.addEventListener("resize", atualizar, { passive: true });
+  window.visualViewport?.addEventListener("resize", atualizar, { passive: true });
+  window.visualViewport?.addEventListener("scroll", atualizar, { passive: true });
+  atualizar();
+})();
+</script>

@@ -1,0 +1,7 @@
+.bob-map { position:relative; font:12px system-ui,sans-serif; }
+.bob-map svg { display:block; width:100%; height:auto; max-height:380px; }
+.bob-map path[role=button] { cursor:pointer; transition:filter .15s; }
+.bob-map path:hover, .bob-map path:focus { filter:brightness(.88); outline:none; stroke:#3f6679; stroke-width:2; }
+.map-toolbar { display:flex; align-items:center; justify-content:space-between; gap:8px; color:#71717a; margin-bottom:8px; font-size:11px; }
+.map-toolbar button { background:white; border:1px solid #d4d4d8; border-radius:8px; padding:6px 10px; cursor:pointer; color:#3f6679; }
+.map-tooltip { position:absolute; bottom:12px; left:50%; transform:translateX(-50%); white-space:nowrap; background:#18181b; color:white; padding:7px 10px; border-radius:7px; pointer-events:none; }

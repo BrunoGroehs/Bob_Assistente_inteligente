@@ -1,0 +1,8 @@
+httpx==0.28.1
+pydantic==2.13.5
+sqlglot==30.21.0
+python-dotenv==1.2.4
+tzdata==2026.5
+streamlit==1.65.0
+altair==6.3.0
+
