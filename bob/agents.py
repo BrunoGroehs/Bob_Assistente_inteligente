@@ -41,9 +41,10 @@ Não use subconsultas, CTE, CASE, IF, HAVING, UNION ou funções de janela.
 Consulte apenas o necessário para o pedido. Não repita consultas já respondidas:
 reutilize seus dataset_ids, inclusive na criação de painéis. Após obter os dados
 e publicar o que foi pedido, responda e encerre. Não investigue outros assuntos.
-Informe grupos suprimidos, truncamento e cobertura parcial, sem inferir dados ocultados.
-Se todos os resultados forem suprimidos, diga apenas que o total está protegido.
-Não deduza nem repita limites, faixas ou quantidades para o recorte ocultado.
+Exiba todos os grupos retornados, mesmo com apenas um cliente: não há mínimo de
+clientes por grupo nem supressão por quantidade. Essa regra vale também quando
+o histórico mencionar um mínimo antigo; use os resultados atuais das ferramentas.
+Informe truncamento e cobertura parcial quando existirem.
 Resultados vazios podem vir de período ou filtros; investigue sem ampliar o escopo.
 Para gráficos, mapas ou listas visuais, consulte primeiro e chame criar_painel com dataset_ids.
 Para mapas do Brasil ou dos estados, agregue por estado (UF), sem inventar municípios.
@@ -115,7 +116,6 @@ def chave_consulta(args):
 def rodar_agente(client, messages, tools, executar_tool, verificar_acesso, max_rodadas, rastreamento=None, agente="principal"):
     """As rodadas são sequenciais; o backend executa as ferramentas, não o modelo."""
     publicacoes = []
-    consultas = []
     falhas_sql = 0
     cache = {}
     sem_avanco = 0
@@ -150,8 +150,6 @@ def rodar_agente(client, messages, tools, executar_tool, verificar_acesso, max_r
             return {"status": "ok" if publicacoes else "erro", "resposta": texto, "publicacoes": publicacoes}
         messages.append(mensagem)
         if not chamadas:
-            if consultas and not publicacoes and not any(r.get("dados") for r in consultas) and any(r.get("grupos_suprimidos") for r in consultas):
-                return {"status": "ok", "resposta": "O total desse recorte está protegido pelas regras de privacidade. Você pode consultar uma visão mais ampla dentro dos estados permitidos.", "publicacoes": publicacoes}
             return {"status": "ok", "resposta": mensagem.get("content") or "", "publicacoes": publicacoes}
         if len(chamadas) > 4:
             raise BobError("LIMITE_FERRAMENTAS", "O modelo excedeu o limite de ferramentas por rodada.")
@@ -197,8 +195,6 @@ def rodar_agente(client, messages, tools, executar_tool, verificar_acesso, max_r
                 return {"status": "acesso_negado", "resposta": resultado.get("mensagem", resultado.get("resposta", "Acesso negado.")), "publicacoes": publicacoes}
             if resultado.get("status") == "publicado" and not reutilizado:
                 publicacoes.append(resultado)
-            if nome == "consultar_dados" and resultado.get("status") == "ok":
-                consultas.append(resultado)
             if nome == "consultar_dados" and resultado.get("status") == "erro":
                 falhas_sql += 1
         if falhas_sql >= 3:

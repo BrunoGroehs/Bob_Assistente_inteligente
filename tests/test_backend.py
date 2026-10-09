@@ -86,17 +86,17 @@ class BackendTests(unittest.TestCase):
         self.assertEqual(r["escopo"], ["SP"])
         self.assertEqual(r["tipos"], {"total": "numero"})
 
-    def test_resultado_suprimido_nao_revela_faixa_inferida_pelo_modelo(self):
+    def test_agente_recebe_e_responde_total_de_um_cliente(self):
         self.perfil = Usuario(id="ana", papel="analista", ufs=("MG",))
         modelo = ModeloSimulado([
             tool("consultar_dados", {"sql": "SELECT COUNT(DISTINCT id) AS clientes FROM clientes WHERE estado='MG'", "objetivo": {"descricao": "Total de clientes MG"}}),
-            {"role": "assistant", "content": "Há menos de 5 clientes em MG."},
+            {"role": "assistant", "content": "Há 1 cliente em MG."},
         ])
         resultado = Agentes(self.backend, modelo).conversar("Quantos clientes temos em MG?")
         self.assertEqual(resultado["status"], "ok")
-        self.assertIn("protegido", resultado["resposta"])
-        self.assertNotIn("5", resultado["resposta"])
-        self.assertNotIn("menos", resultado["resposta"])
+        self.assertEqual(resultado["resposta"], "Há 1 cliente em MG.")
+        dados = json.loads(modelo.chamadas[-1][-1]["content"])
+        self.assertEqual(dados["dados"], [{"clientes": 1}])
         self.assertEqual(len(modelo.chamadas), 2)
 
     def test_ufs_do_objetivo_fora_do_escopo_sao_negadas(self):
@@ -162,13 +162,34 @@ class BackendTests(unittest.TestCase):
         self.assertNotIn("SEGREDO_NOVO", contexto)
         self.assertNotIn("nova_coluna_privada", contexto)
 
-    def test_celulas_pequenas_sao_suprimidas(self):
+    def test_grupos_pequenos_sao_exibidos_sem_permitir_filtro_por_identificador(self):
         r = self.consultar("SELECT categoria, COUNT(*) AS total FROM compras WHERE valor > 90 AND cliente_id > 2 GROUP BY categoria")
         self.assertEqual(r["status"], "erro")
         self.perfil = Usuario(id="ana", papel="analista", ufs=("RJ",))
         r = self.consultar("SELECT canal, COUNT(*) AS total FROM suporte GROUP BY canal")
-        self.assertEqual(r["dados"], [])
-        self.assertEqual(r["grupos_suprimidos"], 2)
+        self.assertCountEqual(r["dados"], [{"canal": "Chat", "total": 3}, {"canal": "Telefone", "total": 3}])
+        self.assertEqual(r["grupos_suprimidos"], 0)
+
+    def test_grupos_de_um_a_quatro_clientes_aparecem_em_tabela_e_refresh(self):
+        with closing(sqlite3.connect(self.banco)) as db, db:
+            db.execute("DELETE FROM compras")
+            cliente = 101
+            for quantidade in range(1, 5):
+                for _ in range(quantidade):
+                    db.execute("INSERT INTO compras (cliente_id, data_compra, valor, categoria, canal) VALUES (?, '2025-05-10', 100, ?, 'App')", (cliente, f"Grupo {quantidade}"))
+                    cliente += 1
+        r = self.consultar("SELECT categoria, COUNT(DISTINCT cliente_id) AS total FROM compras GROUP BY categoria ORDER BY categoria")
+        esperado = [{"categoria": f"Grupo {n}", "total": n} for n in range(1, 5)]
+        self.assertEqual(r["dados"], esperado)
+        self.assertEqual(self.publicar(r, tipo="tabela")["status"], "publicado")
+        self.assertEqual(self.backend.workspace()[0]["resultado"]["dados"], esperado)
+        self.assertEqual(self.backend.atualizar_componente("total")["resultado"]["dados"], esperado)
+
+    def test_cobertura_de_periodo_disponivel_com_um_cliente(self):
+        self.perfil = Usuario(id="ana", papel="analista", ufs=("MG",))
+        contexto = self.backend.contexto()
+        self.assertEqual(contexto["cobertura_meses"]["compras"], ["2025-04", "2025-05"])
+        self.assertNotIn("min_clientes_por_grupo", contexto)
 
     def test_ausencia_de_registros_nao_e_acesso_negado(self):
         r = self.consultar("SELECT COUNT(*) AS total FROM compras WHERE data_compra >= '2030-01-01'")

@@ -110,14 +110,14 @@ class WorkspaceTests(unittest.TestCase):
         c["x"] = None
         self.assertEqual(self.sessao.backend.publicar_painel({"componentes": [c]})["codigo"], "PAINEL_INVALIDO")
 
-    def test_mapa_suprimido_nao_vira_zero(self):
+    def test_mapa_exibe_estado_com_um_cliente(self):
         sessao = self.sessao.reiniciar(Usuario(id="demo", papel="analista", ufs=("MG",)))
         self.assertEqual(self.publicar_mapa(sessao)["status"], "publicado")
         r = sessao.backend.workspace()[0]["resultado"]
-        self.assertEqual(r["dados"], [])
-        self.assertGreater(r["grupos_suprimidos"], 0)
+        self.assertEqual(r["dados"], [{"estado": "MG", "clientes": 1}])
+        self.assertEqual(r["grupos_suprimidos"], 0)
         svg = mapa_svg(("MG",), r["dados"], estado="MG")
-        self.assertIn("Sem valor exibível", svg)
+        self.assertIn("clientes: 1", svg)
         self.assertNotIn("clientes: 0", svg)
 
     def test_svg_tem_27_ufs_e_zoom_do_estado_sem_dados_fora_do_acesso(self):

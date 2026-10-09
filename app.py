@@ -108,7 +108,7 @@ def renderizar(componente, sessao):
             mapa_interativo(sessao, componente, st.session_state.geracao)
             st.html('''<div class="map-legend"><span><i style="background:#2c5b70"></i>Valor disponível</span><span><i style="background:#e1e8ee"></i>Sem valor exibível</span><span><i style="background:#e5e7eb"></i>Fora do acesso</span></div>''')
         elif not dados:
-            st.info("Nenhum valor exibível para esta consulta. Confira filtros e grupos suprimidos.")
+            st.info("Nenhum resultado para esta consulta. Confira o período e os filtros.")
         elif componente["tipo"] == "indicador":
             st.html(f'<div class="metric-value">{escape(numero(dados[0][y]))}</div><div class="metric-label">{escape(y)}</div>')
         elif componente["tipo"] == "tabela":
@@ -122,8 +122,6 @@ def renderizar(componente, sessao):
                 if template.percentual:
                     st.caption("Participação no total consultado, dentro do seu escopo.")
         with st.expander("Dados e contexto"):
-            if resultado.get("grupos_suprimidos"):
-                st.caption(f"{resultado['grupos_suprimidos']} grupo(s) protegido(s). Ausência de valor não significa zero.")
             if resultado.get("truncado"):
                 st.caption("Resultado truncado: a consulta excedeu o limite de linhas.")
             data = datetime.fromisoformat(resultado["atualizado_em"]).astimezone(ZoneInfo("America/Sao_Paulo"))

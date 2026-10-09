@@ -33,7 +33,6 @@ def salvar(sessao, id_, arquivo=ARQUIVO):
     limpar = Rastreamento('', (sessao.client.api_key,)).limpar
     estado = {
         'versao': 1, 'banco': str(sessao.backend.banco.resolve()), 'perfil': perfil.model_dump(),
-        'min_clientes': sessao.backend.min_clientes,
         'consultas': {id_: ds['consulta'].model_dump() for id_, ds in sessao.backend._datasets.items()},
         'componentes': [{k: v for k, v in c.items() if k not in {'resultado', 'versao', 'evidencia_em'}} for c in componentes],
         'versoes': {c['id']: {k: c[k] for k in ('versao', 'evidencia_em') if k in c} for c in componentes},
@@ -67,9 +66,8 @@ def restaurar(banco, id_, usuario=None, arquivo=ARQUIVO):
     if usuario is not None and salvo != usuario:
         return SessaoLocal(banco, usuario)
     sessao = SessaoLocal(banco, usuario or salvo)
-    sessao.backend.min_clientes = max(sessao.backend.min_clientes, estado.get('min_clientes', 5))
     if salvo.papel == 'analista' and salvo.ufs:
-        # Reexecuta exclusivamente queries protegidas: permissões e privacidade atuais.
+        # Reexecuta as consultas com as permissões e a validação SQL atuais.
         for dataset_id, consulta in estado['consultas'].items():
             sessao.backend._consultar(Consulta.model_validate(consulta), dataset_id=dataset_id)
         if estado['componentes']:

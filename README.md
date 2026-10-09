@@ -77,7 +77,7 @@ usuarios.exemplo.json   Perfis usados na demonstração pela CLI
 
 Os pontos principais são `bob/agents.py` (fluxo e ferramentas dos agentes), `bob/database.py` (recorte e validação SQL), `bob/tools.py` (consultas, publicação e refresh) e `bob/schemas.py` (contratos).
 
-O controle de acesso combina papel e UFs. Dados pessoais não entram no recorte; identificadores internos são remapeados. Consultas retornam agregações com até 200 linhas e suprimem grupos com menos de cinco clientes. Mudanças de permissões invalidam os resultados da sessão.
+O controle de acesso combina papel e UFs. Dados pessoais não entram no recorte; identificadores internos são remapeados. Consultas retornam agregações com até 200 linhas, sem exigir um número mínimo de clientes por grupo. Mudanças de permissões invalidam os resultados da sessão.
 
 Gráficos usam Altair com templates fixos de barras, linhas, áreas, pizza, rosca, dispersão e mapa de calor. Mapas usam as [malhas públicas do IBGE](https://servicodados.ibge.gov.br/api/docs/malhas?versao=3), armazenadas em `assets/brasil-ufs.geojson`.
 
@@ -94,7 +94,7 @@ As chamadas ao modelo são simuladas nos testes automatizados, que não precisam
 ## Limitações e melhorias
 
 - A seleção de perfil é uma simulação, sem autenticação. Por isso, o servidor está configurado para acesso local. Uma implantação compartilhada precisa de autenticação e identidade fornecida pelo servidor.
-- A base cobre aproximadamente julho de 2024 a julho de 2025. Consultas de períodos mais recentes podem retornar zero por falta de dados. A supressão de grupos pequenos também pode reduzir rankings ou deixar séries vazias.
+- A base cobre aproximadamente julho de 2024 a julho de 2025. Consultas de períodos mais recentes podem retornar zero por falta de dados.
 - O SQL aceita agregações sobre uma tabela ou um JOIN entre clientes e uma tabela de eventos. Subconsultas, CTEs, janelas e cruzamentos entre várias tabelas de eventos ficam fora deste escopo.
 - O backend garante o recorte das UFs permitidas, mas filtros mais específicos dependem do SQL gerado. A validação de períodos relativos precisa ser reforçada para expressões negadas.
 - Percentuais calculados no texto podem apresentar erros do modelo. Uma melhoria é calcular essas métricas no backend e validar sua apresentação na resposta. Sugestões de relacionamento também exigem revisão e não representam efeitos comprovados ou envios realizados.

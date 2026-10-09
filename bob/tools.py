@@ -31,10 +31,9 @@ def validar_grafico(componente, dataset):
 
 
 class Backend:
-    def __init__(self, banco: Path, obter_usuario, min_clientes=5, hoje=None):
+    def __init__(self, banco: Path, obter_usuario, hoje=None):
         self.banco = Path(banco)
         self.obter_usuario = obter_usuario
-        self.min_clientes = min_clientes
         self.hoje = hoje or (lambda: datetime.now(ZoneInfo("America/Sao_Paulo")).date())
         self._perfil = None
         self._datasets = {}
@@ -68,13 +67,11 @@ class Backend:
             schema = descobrir_schema(recorte)
             cobertura = {}
             for tabela, colunas in schema.items():
-                if recorte.execute(f'SELECT COUNT(DISTINCT {"id" if tabela == "clientes" else "cliente_id"}) FROM "{tabela}"').fetchone()[0] < self.min_clientes:
-                    continue
                 for coluna in colunas:
                     if coluna.startswith("data_"):
                         extremos = recorte.execute(f'SELECT MIN("{coluna}"), MAX("{coluna}") FROM "{tabela}"').fetchone()
                         cobertura[tabela] = [str(v)[:7] if v else None for v in extremos]
-        return {"ufs_permitidas": usuario.ufs, "schema": schema, "cobertura_meses": cobertura, "hoje": self.hoje().isoformat(), "min_clientes_por_grupo": self.min_clientes}
+        return {"ufs_permitidas": usuario.ufs, "schema": schema, "cobertura_meses": cobertura, "hoje": self.hoje().isoformat()}
 
     def consultar_dados(self, sql, objetivo):
         try:
@@ -103,7 +100,7 @@ class Backend:
         with closing(abrir_recorte(self.banco, usuario)) as recorte:
             schema = descobrir_schema(recorte)
             seguro = validar_sql(consulta.sql, schema, usuario, acao, bool(dias))
-            resultado = executar(recorte, seguro, parametros, schema, self.min_clientes)
+            resultado = executar(recorte, seguro, parametros, schema)
         dataset = {"dataset_id": dataset_id or uuid4().hex, "consulta": consulta, "escopo": list(usuario.ufs), "atualizado_em": agora(), "parametros": parametros, **resultado}
         if validar_resultado:
             validar_resultado(dataset)

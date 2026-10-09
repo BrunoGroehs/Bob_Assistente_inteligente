@@ -61,14 +61,27 @@ class PersistenceTests(unittest.TestCase):
         self.assertEqual(novo.posicoes_manuais, set())
         self.assertEqual(novo.componentes()[0]['resultado']['dados'], [{'estado':'SP','clientes':12}])
 
-    def test_reconsulta_aplica_privacidade_atual_e_nova_sessao_esvazia_snapshot(self):
+    def test_reconsulta_exibe_grupo_pequeno_e_nova_sessao_esvazia_snapshot(self):
         salvar(self.sessao,self.token,self.arquivo)
         with closing(sqlite3.connect(self.banco)) as db, db:
-            db.execute("DELETE FROM clientes WHERE estado='São Paulo' AND id>3")
+            db.execute("DELETE FROM clientes WHERE estado='São Paulo' AND id>103")
         novo = restaurar(self.banco,self.token,self.perfil,self.arquivo)
-        self.assertEqual(novo.componentes()[0]['resultado']['dados'],[])
+        self.assertEqual(novo.componentes()[0]['resultado']['dados'], [{'estado':'SP','clientes':3}])
         salvar(novo.reiniciar(),self.token,self.arquivo)
         self.assertEqual(restaurar(self.banco,self.token,self.perfil,self.arquivo).componentes(),[])
+
+    def test_workspace_antigo_nao_reintroduz_minimo_de_clientes(self):
+        salvar(self.sessao, self.token, self.arquivo)
+        with closing(sqlite3.connect(self.arquivo)) as db, db:
+            estado = json.loads(db.execute('SELECT estado FROM workspaces').fetchone()[0])
+            self.assertNotIn('min_clientes', estado)
+            estado['min_clientes'] = 5
+            db.execute('UPDATE workspaces SET estado=?', (json.dumps(estado),))
+        with closing(sqlite3.connect(self.banco)) as db, db:
+            db.execute("DELETE FROM clientes WHERE estado='São Paulo' AND id>101")
+        novo = restaurar(self.banco, self.token, self.perfil, self.arquivo)
+        self.assertEqual(novo.componentes()[0]['resultado']['dados'], [{'estado':'SP','clientes':1}])
+        self.assertEqual(novo.backend.atualizar_componente('mapa')['resultado']['dados'], [{'estado':'SP','clientes':1}])
 
     def test_segredos_nao_sao_persistidos_e_identificador_e_validado(self):
         self.sessao.client.api_key = 'CHAVE_DE_TESTE'

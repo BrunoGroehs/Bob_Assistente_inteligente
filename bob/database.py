@@ -148,11 +148,7 @@ def validar_sql(sql: str, schema: dict, usuario: Usuario, acao="consultar", peri
             raise BobError("SQL_BLOQUEADO", "O JOIN deve relacionar clientes.id ao cliente_id da tabela de eventos.")
     if not q.args.get("from_") or not isinstance(q.args["from_"].this, exp.Table):
         raise BobError("SQL_BLOQUEADO", "Informe uma tabela analítica no FROM.")
-    primeira = q.args["from_"].this
-    referencia = "id" if primeira.name == "clientes" else "cliente_id"
-    # Conta pessoas em cada grupo para a política de células pequenas.
     q = q.copy()
-    q.select(exp.alias_(exp.Count(this=exp.Distinct(expressions=[exp.column(referencia, table=primeira.alias_or_name)])), "_clientes_grupo"), append=True, copy=False)
     limite = q.args.get("limit")
     if limite and (not isinstance(limite.expression, exp.Literal) or limite.expression.is_string or not limite.expression.this.isdigit()):
         raise BobError("SQL_BLOQUEADO", "LIMIT deve ser um inteiro positivo.")
@@ -160,7 +156,7 @@ def validar_sql(sql: str, schema: dict, usuario: Usuario, acao="consultar", peri
     return q.sql(dialect="sqlite")
 
 
-def executar(conexao, sql: str, parametros: dict, schema: dict, min_clientes=5):
+def executar(conexao, sql: str, parametros: dict, schema: dict):
     """Segunda barreira no próprio SQLite, além da validação da árvore SQL."""
     inicio = monotonic()
 
@@ -178,18 +174,13 @@ def executar(conexao, sql: str, parametros: dict, schema: dict, min_clientes=5):
     try:
         cursor = conexao.execute(sql, parametros)
         colunas = [c[0] for c in cursor.description]
-        if len(set(colunas)) != len(colunas) or colunas.count("_clientes_grupo") != 1:
+        if len(set(colunas)) != len(colunas):
             raise BobError("SQL_INVALIDO", "Use nomes únicos para as métricas e dimensões.")
         linhas = cursor.fetchmany(201)
-        dados, suprimidos = [], 0
-        for linha in linhas[:200]:
-            if 0 < linha["_clientes_grupo"] < min_clientes:
-                suprimidos += 1
-                continue
-            dados.append({k: linha[k] for k in colunas if k != "_clientes_grupo"})
-        publicas = [c for c in colunas if c != "_clientes_grupo"]
-        tipos = {c: next(("numero" if isinstance(l[c], (int, float)) else "texto" for l in linhas if l[c] is not None), "desconhecido") for c in publicas}
-        return {"dados": dados, "colunas": publicas, "tipos": tipos, "quantidade_linhas": len(dados), "truncado": len(linhas) > 200, "grupos_suprimidos": suprimidos, "duracao_ms": round((monotonic() - inicio) * 1000)}
+        dados = [dict(linha) for linha in linhas[:200]]
+        tipos = {c: next(("numero" if isinstance(l[c], (int, float)) else "texto" for l in linhas if l[c] is not None), "desconhecido") for c in colunas}
+        # Campo mantido no contrato dos datasets; não há supressão por quantidade.
+        return {"dados": dados, "colunas": colunas, "tipos": tipos, "quantidade_linhas": len(dados), "truncado": len(linhas) > 200, "grupos_suprimidos": 0, "duracao_ms": round((monotonic() - inicio) * 1000)}
     except sqlite3.Error as erro:
         codigo = "SQL_TIMEOUT" if "interrupted" in str(erro) else "SQL_INVALIDO"
         raise BobError(codigo, "A consulta falhou. Confira o schema e simplifique o SQL; nomes de colunas devem existir no recorte.") from None

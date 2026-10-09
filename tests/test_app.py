@@ -56,6 +56,24 @@ class InterfaceTests(unittest.TestCase):
         self.assertEqual(len(self.app.main.chat_input), 1)
         self.assertEqual(len(self.app.selectbox), 0)
 
+    def test_tabela_top_cinco_app_exibe_estados_com_menos_de_cinco_clientes(self):
+        sessao = self.app.session_state["sessao"]
+        r = sessao.backend.consultar_dados(
+            "SELECT c.estado, COUNT(DISTINCT c.id) AS clientes FROM clientes c JOIN compras p ON p.cliente_id=c.id WHERE p.canal='App' AND p.data_compra >= '2025-05-01' AND p.data_compra < '2025-06-01' GROUP BY c.estado ORDER BY clientes DESC LIMIT 5",
+            {"descricao": "Top 5 estados com clientes que compraram via App em maio de 2025"})
+        self.assertEqual(r["status"], "ok")
+        publicacao = sessao.backend.publicar_painel({"componentes": [{
+            "id": "top_app", "tipo": "tabela", "dataset_id": r["dataset_id"],
+            "titulo": "Top 5 estados — App em maio de 2025"}]})
+        self.assertEqual(publicacao["status"], "publicado")
+        self.app.run()
+        self.assertEqual(len(self.app.exception), 0)
+        linhas = self.app.dataframe[0].value.to_dict("records")
+        self.assertEqual(linhas, r["dados"])
+        self.assertEqual(len(linhas), 5)
+        self.assertTrue(any(linha["clientes"] < 5 for linha in linhas))
+        self.assertFalse(any("protegido" in c.value.lower() or "suprimid" in c.value.lower() for c in self.app.caption))
+
     def test_ia_cria_componentes_e_nova_sessao_limpa(self):
         modelo = self.publicar_com_ia()
         self.assertEqual(len(self.app.exception), 0)
